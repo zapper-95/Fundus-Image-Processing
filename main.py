@@ -24,6 +24,11 @@ def edge_sharpener(img,kernel_size,kernel_size2, k):
     sharp_img = cv2.subtract(gaussian_img,scaled_lap)
     return sharp_img
 
+def add_in_painting(img):
+    mask = cv2.imread("inpaint_mask.jpg", cv2.IMREAD_GRAYSCALE)
+
+    img = cv2.inpaint(img,mask,3,cv2.INPAINT_TELEA)
+    return img
 
 def main():
     print("hello world")
@@ -40,13 +45,13 @@ def main():
 
     # Create a directory to store the results
     # if it exists, overwrite it
-    if os.path.exists("results"):
+    if os.path.exists("Results"):
         # recursively remove the directory called results
-        for file in os.listdir("results"):
-            os.remove("results/" + file)
-        os.rmdir("results")
+        for file in os.listdir("Results"):
+            os.remove("Results/" + file)
+        os.rmdir("Results")
 
-    os.makedirs("results")
+    os.makedirs("Results")
 
     # Process each image
     for file in files:
@@ -59,19 +64,14 @@ def main():
 
                 #show_image(img)
 
-                img = remove_noise(img)
-                #img = alter_contrast_brightness(img)
+
+                img = add_in_painting(img)
                 img = fix_perspective(img)
-                #plot_histogram(img)
-                
+                img = CLACHE(img)
+
+                img = remove_noise(img)
+
                 #show_image(img)
-                
-                # sharpen the edges
-                img = edge_sharpener(img,3,3,1.6)
-
-                
-
-
 
                 cv2.imwrite("Results/" + file, img)
 
@@ -98,8 +98,8 @@ def fix_perspective(img):
     
     rows, cols = img.shape[:2]
 
-    src_points = np.float32([[25,125], [235,125], [130,0], [130,250]])
-    
+    src_points = np.float32([[25,125], [233,110], [125,9], [143,235]])
+
     #draw the src points on the image. Make the colour green
 
     for point in src_points:
@@ -108,41 +108,68 @@ def fix_perspective(img):
         y = int(point[1])
         #img = cv2.circle(img, (x,y), radius=3, color=(0, 255, 0), thickness=-1,)
     
-    dst_points = np.float32([[0,125], [250,125], [130,-20], [130,270]]) 
+    dst_points = np.float32([[0,125], [250,125], [130,0], [130,255]]) 
     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
     return cv2.warpPerspective(img, projective_matrix, (cols,rows))
 
 
+def colour_correction(img):
+    # display all histograms for each channel
+    for i in range(3):
+        plt.hist(img[:,:,i].ravel(),256,[0,256])
+    plt.show()
+
+
+
+
+    return img
+
 
 def remove_noise(img):
-    sigma_r = 400
+    sigma_r = 200
     sigma_s = 400
         # apply billateral filtering
     #img = cv2.bilateralFilter(img, 3, sigma_r, sigma_s, borderType=cv2.BORDER_REPLICATE)
 
 
     # apply non local means denoising
-    #img = cv2.fastNlMeansDenoisingColored(img, 8, 8, 21, 7) 
+    #img = cv2.fastNlMeansDenoisingColored(img,None,5,0,7,21)
     
     
     #remove salt and pepper noise
     img = cv2.medianBlur(img,3)
+    #img  = cv2.bilateralFilter(img,9,75,75)
     return img
 
 
 def alter_contrast_brightness(img):
     # credit to https://www.etutorialspoint.com/index.php/311-python-opencv-histogram-equalization
+    # https://stackoverflow.com/questions/31998428/opencv-python-equalizehist-colored-image
 
-    img_yuv = cv2.cvtColor(img,cv2.COLOR_BGR2YUV)
+    # convert from RGB color-space to YCrCb
+    ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
 
-    # apply histogram equalization 
-    img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
-    img = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+    # equalize the histogram of the Y channel
+    ycrcb_img[:, :, 0] = cv2.equalizeHist(ycrcb_img[:, :, 0])
+
+    # convert back to RGB color-space from YCrCb
+    img = cv2.cvtColor(ycrcb_img, cv2.COLOR_YCrCb2BGR)
 
 
     return img
 
+def CLACHE(img):
+    ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    ycrcb_img[:, :, 0] = clahe.apply(ycrcb_img[:, :, 0])
+    img = cv2.cvtColor(ycrcb_img, cv2.COLOR_YCrCb2BGR)
 
+    return img
+
+
+def alter_contrast_brightness2(img):
+
+    return img
 
 
 
