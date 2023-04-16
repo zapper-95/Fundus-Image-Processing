@@ -57,63 +57,21 @@ def main():
             if file.endswith(".png") or file.endswith(".jpg") or file.endswith(".jpeg"):
                 img = cv2.imread(args.path + "/" + file)
 
+                #show_image(img)
 
+                img = remove_noise(img)
+                #img = alter_contrast_brightness(img)
                 img = fix_perspective(img)
-                '''
-                Making an ellipse that fits over the image so I can apply a transformation to make it a circle
-                                overlay = img.copy()
-
-                alpha = 0.5
-
-                # detect the ellipse and transform the distorted perspective so that it is a circle
-                overlay = cv2.ellipse(overlay, (130,125), (105,145), -7, 0, 360, (255,255,255), -1)
-                img = cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0)
+                #plot_histogram(img)
                 
-                                ellipse = cv2.ellipse(img, (130,125), (105,145), -7, 0, 360, (255,255,255), -1)
-                circle = cv2.circle(img, (130,125), 120, (255,255,255), -1)
-                '''
-                # Warping: the images are distorted. This issue can potentially be resolved using projective transformations, so that objects within the images look as they should.
-
+                #show_image(img)
                 
-                #ellipse = cv2.ellipse(img, (130,125), (105,145), -7, 0, 360, (255,255,255), -1)
-                
-                
-
-
-
-                # Write a function to deal with the following problem:
-                # Colour channel imbalance: the information contained within the colour channels of the images is not balanced - i.e. some channels might be darker/brighter than others.
-                # This can be resolved by applying a histogram equalisation to the image.
-
-                
-
-                plt.hist(img.ravel(),256,[0,256])
-               
-
-                #img[:,:,0] = cv2.equalizeHist(img[:,:,0])
-                #plt.hist(img.ravel(),256,[0,256])
-
-
-
-                #plt.show()
-                cv2.imshow("image", img)
-                cv2.waitKey(0)
-
-                # use contrast stretching to improve the contrast of the image
-                img = alter_contrast_brightness(img)
-                
-                #draw the image
-                #cv2.imshow("image", img)
-                #cv2.waitKey(0)
-                #break
-                
-                
-
+                # sharpen the edges
+                img = edge_sharpener(img,3,3,2)
 
                 img = remove_noise(img)
                 
-                # sharpen the edges
-                #img = edge_sharpener(img,5,3,0.8)
+
 
 
                 cv2.imwrite("Results/" + file, img)
@@ -123,6 +81,16 @@ def main():
         except Exception as e:
             print("Exception: ", e)
             continue
+
+
+def show_image(img):
+    cv2.imshow("image", img)
+    cv2.waitKey(0)
+
+
+def plot_histogram(img):
+     plt.hist(img.ravel(),256,[0,256])
+     plt.show()
 
 
 def fix_perspective(img):
@@ -141,15 +109,15 @@ def fix_perspective(img):
         y = int(point[1])
         #img = cv2.circle(img, (x,y), radius=3, color=(0, 255, 0), thickness=-1,)
     
-    dst_points = np.float32([[0,125], [250,125], [130,0], [130,250]]) 
+    dst_points = np.float32([[0,125], [250,125], [130,-20], [130,270]]) 
     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
     return cv2.warpPerspective(img, projective_matrix, (cols,rows))
 
 
 
 def remove_noise(img):
-    sigma_r = 200
-    sigma_s = 200
+    sigma_r = 400
+    sigma_s = 400
         # apply billateral filtering
     #img = cv2.bilateralFilter(img, 3, sigma_r, sigma_s, borderType=cv2.BORDER_REPLICATE)
 
@@ -162,10 +130,22 @@ def remove_noise(img):
     img = cv2.medianBlur(img,3)
     return img
 
+
 def alter_contrast_brightness(img):
-    #correct contrast and brightness
-    img = cv2.convertScaleAbs(img, alpha=0.8, beta=-20)
+    # credit to https://www.etutorialspoint.com/index.php/311-python-opencv-histogram-equalization
+
+    img_yuv = cv2.cvtColor(img,cv2.COLOR_BGR2YUV)
+
+    # apply histogram equalization 
+    img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
+    img = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+
+
     return img
+
+
+
+
 
 if __name__ == "__main__":
     main()
