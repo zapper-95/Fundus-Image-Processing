@@ -67,9 +67,8 @@ def main():
                 #show_image(img)
                 
                 # sharpen the edges
-                img = edge_sharpener(img,3,3,2)
+                img = edge_sharpener(img,3,3,1.6)
 
-                img = remove_noise(img)
                 
 
 
