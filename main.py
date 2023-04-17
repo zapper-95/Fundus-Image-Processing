@@ -63,7 +63,7 @@ def main():
             if file.endswith(".png") or file.endswith(".jpg") or file.endswith(".jpeg"):
                 img = cv2.imread(args.path + "/" + file)
                 
-                dft(img)
+                #dft(img)
                 #show_image(img)
 
                 #show_image(img, "Original Image")
@@ -101,7 +101,7 @@ def fix_perspective(img):
     
     rows, cols = img.shape[:2]
 
-    src_points = np.float32([[25,125], [233,110], [125,9], [143,235]])
+    src_points = np.float32([[25,125], [235,115], [125,9], [143,235]])
 
     #draw the src points on the image. Make the colour green
 
@@ -109,9 +109,12 @@ def fix_perspective(img):
         # get the x and y coordinates of the point
         x = int(point[0])
         y = int(point[1])
+
         #img = cv2.circle(img, (x,y), radius=3, color=(0, 255, 0), thickness=-1,)
-    
-    dst_points = np.float32([[0,125], [250,125], [130,0], [130,255]]) 
+
+    #cv2.imshow("image", img)
+    #cv2.waitKey(0)
+    dst_points = np.float32([[10,125], [240,125], [130,23], [130,232]]) 
     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
     return cv2.warpPerspective(img, projective_matrix, (cols,rows))
 
@@ -140,7 +143,7 @@ def remove_noise(img):
     
     
     #remove salt and pepper noise
-    #img = cv2.medianBlur(img,3)
+    img = cv2.medianBlur(img,3)
     #img  = cv2.bilateralFilter(img,9,75,75)
     return img
 
@@ -163,7 +166,7 @@ def alter_contrast_brightness(img):
 
 def CLACHE(img):
     ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
+    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8, 8))
     ycrcb_img[:, :, 0] = clahe.apply(ycrcb_img[:, :, 0])
     img = cv2.cvtColor(ycrcb_img, cv2.COLOR_YCrCb2BGR)
 
@@ -174,11 +177,8 @@ def alter_contrast_brightness2(img):
 
     return img
 
-def dft(img, radius=50, order=5):
+def dft(img, radius=40, order=1.5):
     
-    # convert to ycrb
-    ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-
     gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     width = int(gray_frame.shape[1])
     height = int(gray_frame.shape[0])
