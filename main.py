@@ -14,21 +14,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 import math
 
-def edge_sharpener(img,kernel_size,kernel_size2, k):    
-    gaussian_img = cv2.GaussianBlur(img,(kernel_size, kernel_size), cv2.BORDER_DEFAULT)
-    # apply a laplacian mask to the gaussian blurred image
-    laplacian_img = cv2.Laplacian(gaussian_img,-1,ksize=kernel_size2)
-    # subtract the laplacian from the original image
-    scaled_lap = laplacian_img*k
-
-    scaled_lap=scaled_lap.astype('uint8') # have to convert back to int 
-    sharp_img = cv2.subtract(gaussian_img,scaled_lap)
-    return sharp_img
 
 def add_in_painting(img):
     mask = cv2.imread("inpaint_mask.jpg", cv2.IMREAD_GRAYSCALE)
 
-    img = cv2.inpaint(img,mask,3,cv2.INPAINT_TELEA)
+    img = cv2.inpaint(img,mask,3,cv2.INPAINT_NS)
+
     return img
 
 def main():
@@ -62,20 +53,96 @@ def main():
             # if the file ends in .png, .jpg, or .jpeg, then process it
             if file.endswith(".png") or file.endswith(".jpg") or file.endswith(".jpeg"):
                 img = cv2.imread(args.path + "/" + file)
-                
-                #dft(img)
-                #show_image(img)
-
-                #show_image(img, "Original Image")
-
                 img = add_in_painting(img)
+                
+                eye_mask = cv2.imread("eye_mask.png", cv2.IMREAD_GRAYSCALE)
+                img = cv2.bitwise_and(img, img, mask=eye_mask)
+
                 img = fix_perspective(img)
+                eye_mask = fix_perspective(eye_mask)
+                #dft(img)
 
-                img = remove_noise(img)
-                img = CLACHE(img)
+                plot_histogram(img)
+                #img_masked = gamma_correction(img_masked,1.4)
 
-                #show_image(img)
-                #cv2.waitKey(0)
+                # apply thresholding to the image
+
+
+                #img_masked = logarithmic_transform(img_masked)
+
+                #img = remove_noise(img)
+                #img = clahe(img,2,(8,8))
+                show_image(img, "Masked Image")
+
+                # convert to ycrb colour space
+                ycrb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+                
+                #extract the brightness channel
+                brightness_img = ycrb_img[:,:,0]
+
+                # apply thresholding to the image
+                # all values below thresh are set to 255, all values above thresh are set to 0
+
+
+                #thresh = np.percentile(brightness_img, 50)
+                thresh = 50
+                brightness_mask = cv2.threshold(brightness_img, thresh, 255, cv2.THRESH_BINARY)[1]
+                #invert mask
+                brightness_mask = cv2.bitwise_not(brightness_mask)
+
+                # the brightness mask should only be 255 if the img is not 0 and the eye mask is 255
+                brightness_mask = cv2.bitwise_and(brightness_mask, brightness_mask, mask=eye_mask)
+
+                # apply a gaussian blur to the mask
+                #brightness_mask = cv2.GaussianBlur(brightness_mask, (5, 5), 0)
+                
+                show_image(brightness_mask, "Thresholded Image")
+
+                # using the mask, apply inpainting to the original image
+                # actually, paint the image red where the mask is
+                img[brightness_mask == 255] = [0, 0, 255]
+                #img = cv2.inpaint(img, brightness_mask, 3, cv2.INPAINT_NS)
+                    
+                show_image(img, "Inpainted Image")
+                show_image(eye_mask, "Actual mask Image")
+
+                # sharpen the image
+                
+
+
+                #img_masked = equalize_histogram(img_masked)
+                #img_masked = gamma_correction(img_masked,1.7)
+
+                #img_masked = cv2.add(img, img_masked)
+
+
+
+                #img_masked = dft(img_masked, 40, 2) 
+                
+                #plot_histogram(img)
+                
+
+                #img_masked = remove_noise(img_masked)
+                #img_masked = clahe(img_masked,2,(8,8))
+                
+                #img_masked = equalize_histogram(img_masked)
+                #img_masked = exponential_transform(img_masked)
+                #img_masked = logarithmic_transform(img_masked)
+                #img_masked = gamma_correction(img_masked,0.3)
+                #plot_histogram(img)
+                
+                #img_masked = dft(img_masked)
+                # add the masked image onto the original image
+
+                #plot_histogram(img
+
+
+
+                #plot_histogram(img)
+                # if q entered, exist the program
+                if cv2.waitKey(0) & 0xFF == ord('q'):
+                    break
+
                 cv2.imwrite("Results/" + file, img)
 
         
@@ -91,9 +158,30 @@ def show_image(img, name="image"):
 
 
 def plot_histogram(img):
-     plt.hist(img.ravel(),256,[0,256])
-     plt.show()
+    #https://docs.opencv.org/3.4/d1/db7/tutorial_py_histogram_begins.html
+    color = ('b','g','r')
+    for i,col in enumerate(color):
+        histr = cv2.calcHist([img],[i],None,[256],[0,256])
+        plt.plot(histr,color = col)
+        plt.xlim([0,256])
+    plt.show()
 
+    return
+
+def exponential_transform(img,c=1,alpha=0.05):
+    #img = c*(((1+alpha)**img)-1)
+
+    for row in range(img.shape[0]):
+        for col in range(img.shape[1]):
+            for channel in range(img.shape[2]):
+                img[row, col,channel] = int(c * (math.pow(1 + alpha, img[row, col,channel]) - 1))
+
+    return img
+
+def gamma_correction(img, gamma=0.7):
+    img = ((np.power(img/255, gamma))*255).astype('uint8')
+
+    return img
 
 def fix_perspective(img):
     # ellipse = cv2.ellipse(img, (130,125), (105,145), -7, 0, 360, (255,255,255), -1)
@@ -119,18 +207,6 @@ def fix_perspective(img):
     return cv2.warpPerspective(img, projective_matrix, (cols,rows))
 
 
-def colour_correction(img):
-    # display all histograms for each channel
-    for i in range(3):
-        plt.hist(img[:,:,i].ravel(),256,[0,256])
-    plt.show()
-
-
-
-
-    return img
-
-
 def remove_noise(img):
     sigma_r = 10
     sigma_s = 30
@@ -139,7 +215,7 @@ def remove_noise(img):
 
 
     # apply non local means denoising
-    #img = cv2.fastNlMeansDenoisingColored(img,None,3,3,7,21)
+    #img = cv2.fastNlMeansDenoisingColored(img,None,4,4,7,21)
     
     
     #remove salt and pepper noise
@@ -147,8 +223,16 @@ def remove_noise(img):
     #img  = cv2.bilateralFilter(img,9,75,75)
     return img
 
+def logarithmic_transform(image):
 
-def alter_contrast_brightness(img):
+    image = image / 2
+    c = 255 / np.log(1 + np.max(image))
+    log_image = c * (np.log(image + 1))
+    log_image = np.array(log_image, dtype = np.uint8)
+
+    return log_image
+
+def equalize_histogram(img):
     # credit to https://www.etutorialspoint.com/index.php/311-python-opencv-histogram-equalization
     # https://stackoverflow.com/questions/31998428/opencv-python-equalizehist-colored-image
 
@@ -164,117 +248,114 @@ def alter_contrast_brightness(img):
 
     return img
 
-def CLACHE(img):
+def clahe(img, clipLimit=1, tileGridSize=(8, 8)):
     ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8, 8))
+    clahe = cv2.createCLAHE(clipLimit, tileGridSize)
     ycrcb_img[:, :, 0] = clahe.apply(ycrcb_img[:, :, 0])
     img = cv2.cvtColor(ycrcb_img, cv2.COLOR_YCrCb2BGR)
 
     return img
 
 
-def alter_contrast_brightness2(img):
+def dft(img, radius=40, order=1):
+    new_img = img.copy()
+    # iterate through each colour channel
+    for i in range(0, 3):
+        channel = img[:,:,i]
 
-    return img
+        #gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        width = int(channel.shape[1])
+        height = int(channel.shape[0])
+        dim = (width, height)
 
-def dft(img, radius=40, order=1.5):
-    
-    gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    width = int(gray_frame.shape[1])
-    height = int(gray_frame.shape[0])
-    dim = (width, height)
+        # set up optimized DFT settings
 
-    # set up optimized DFT settings
+        nheight = cv2.getOptimalDFTSize(height)
+        nwidth = cv2.getOptimalDFTSize(width)
 
-    nheight = cv2.getOptimalDFTSize(height)
-    nwidth = cv2.getOptimalDFTSize(width)
+        # Performance of DFT calculation, via the FFT, is better for array
+        # sizes of power of two. Arrays whose size is a product of
+        # 2's, 3's, and 5's are also processed quite efficiently.
+        # Hence we modify the size of the array to the optimal size (by padding
+        # zeros) before finding DFT.
 
-    # Performance of DFT calculation, via the FFT, is better for array
-    # sizes of power of two. Arrays whose size is a product of
-    # 2's, 3's, and 5's are also processed quite efficiently.
-    # Hence we modify the size of the array to the optimal size (by padding
-    # zeros) before finding DFT.
+        pad_right = nwidth - width
+        pad_bottom = nheight - height
+        nframe = cv2.copyMakeBorder(
+            channel,
+            0,
+            pad_bottom,
+            0,
+            pad_right,
+            cv2.BORDER_CONSTANT,
+            value=0)
 
-    pad_right = nwidth - width
-    pad_bottom = nheight - height
-    nframe = cv2.copyMakeBorder(
-        gray_frame,
-        0,
-        pad_bottom,
-        0,
-        pad_right,
-        cv2.BORDER_CONSTANT,
-        value=0)
+            # perform the DFT and get complex output
 
-        # perform the DFT and get complex output
+        dft = cv2.dft(np.float32(nframe), flags=cv2.DFT_COMPLEX_OUTPUT)
 
-    dft = cv2.dft(np.float32(nframe), flags=cv2.DFT_COMPLEX_OUTPUT)
+        # shift it so that we the zero-frequency, F(0,0), DC component to the
+        # center of the spectrum.
 
-    # shift it so that we the zero-frequency, F(0,0), DC component to the
-    # center of the spectrum.
-
-    dft_shifted = np.fft.fftshift(dft)
-
-
-
-    lp_filter = create_butterworth_low_pass_filter(nwidth, nheight, radius, order)
-    lo_dft_filtered = cv2.mulSpectrums(dft_shifted, lp_filter, flags=0)
-
-    # shift back to original quaderant ordering
-
-    lo_dft = np.fft.fftshift(lo_dft_filtered)
-
-    # recover the original image via the inverse DFT
-
-    lo_filtered_img = cv2.dft(lo_dft, flags=cv2.DFT_INVERSE)
-
-    # normalized the filtered image into 0 -> 255 (8-bit grayscale) 
-    # so we can see the output
-
-    # low pass filter output
-
-    lo_min_val, lo_max_val, lo_min_loc, lo_max_loc = \
-        cv2.minMaxLoc(lo_filtered_img[:, :, 0])
-    lo_filtered_img_normalised = lo_filtered_img[:, :, 0] * (
-        1.0 / (lo_max_val - lo_min_val)) + ((-lo_min_val) / (lo_max_val - lo_min_val))
-    lo_filtered_img_normalised = np.uint8(lo_filtered_img_normalised * 255)
-
-    # calculate the magnitude spectrum and log transform + scale for visualization
+        dft_shifted = np.fft.fftshift(dft)
 
 
-    lo_magnitude_spectrum = np.log(cv2.magnitude(
-        lo_dft_filtered[:, :, 0], lo_dft_filtered[:, :, 1]))
 
-    magnitude_spectrum = np.log(cv2.magnitude(
-        dft_shifted[:, :, 0], dft_shifted[:, :, 1]))
+        lp_filter = create_butterworth_low_pass_filter(nwidth, nheight, radius, order)
+        lo_dft_filtered = cv2.mulSpectrums(dft_shifted, lp_filter, flags=0)
 
-    # create 8-bit images to put the magnitude spectrum into
+        # shift back to original quaderant ordering
 
-    magnitude_spectrum_normalised = np.zeros((nheight, nwidth, 1), np.uint8)
+        lo_dft = np.fft.fftshift(lo_dft_filtered)
 
-    # normalized the magnitude spectrum into 0 -> 255 (8-bit grayscale) so
-    # we can see the output
+        # recover the original image via the inverse DFT
 
-    cv2.normalize(
-        np.uint8(magnitude_spectrum),
-        magnitude_spectrum_normalised,
-        alpha=0,
-        beta=255,
-        norm_type=cv2.NORM_MINMAX)
+        lo_filtered_img = cv2.dft(lo_dft, flags=cv2.DFT_INVERSE)
 
-    # convert back to colour for visualisation
+        # normalized the filtered image into 0 -> 255 (8-bit grayscale) 
+        # so we can see the output
 
-    gray_frame = cv2.cvtColor(gray_frame, cv2.COLOR_GRAY2BGR)
-    magnitude_spectrum_normalised = cv2.cvtColor(magnitude_spectrum_normalised, cv2.COLOR_GRAY2BGR)
-    lo_filtered_img_normalised = cv2.cvtColor(lo_filtered_img_normalised, cv2.COLOR_GRAY2BGR)
-    lp_filter_vis = cv2.cvtColor(np.uint8(lp_filter[:, :, 0] * 255), cv2.COLOR_GRAY2BGR)
+        # low pass filter output
 
-    cv2.imshow('original', gray_frame)
-    cv2.imshow('magnitude spectrum', magnitude_spectrum_normalised)
-    cv2.imshow('low pass filtered image', lo_filtered_img_normalised)
-    cv2.imshow('low pass filter', lp_filter_vis)
+        lo_min_val, lo_max_val, lo_min_loc, lo_max_loc = \
+            cv2.minMaxLoc(lo_filtered_img[:, :, 0])
+        lo_filtered_img_normalised = lo_filtered_img[:, :, 0] * (
+            1.0 / (lo_max_val - lo_min_val)) + ((-lo_min_val) / (lo_max_val - lo_min_val))
+        lo_filtered_img_normalised = np.uint8(lo_filtered_img_normalised * 255)
 
-    cv2.waitKey(0)
+        # calculate the magnitude spectrum and log transform + scale for visualization
+
+
+        lo_magnitude_spectrum = np.log(cv2.magnitude(
+            lo_dft_filtered[:, :, 0], lo_dft_filtered[:, :, 1]))
+
+        magnitude_spectrum = np.log(cv2.magnitude(
+            dft_shifted[:, :, 0], dft_shifted[:, :, 1]))
+
+        # create 8-bit images to put the magnitude spectrum into
+
+        magnitude_spectrum_normalised = np.zeros((nheight, nwidth, 1), np.uint8)
+
+        # normalized the magnitude spectrum into 0 -> 255 (8-bit grayscale) so
+        # we can see the output
+
+        cv2.normalize(
+            np.uint8(magnitude_spectrum),
+            magnitude_spectrum_normalised,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_MINMAX)
+
+        # convert back to colour for visualisation
+
+        #channel = cv2.cvtColor(channel, cv2.COLOR_GRAY2BGR)
+        magnitude_spectrum_normalised = cv2.cvtColor(magnitude_spectrum_normalised, cv2.COLOR_GRAY2BGR)
+        lo_filtered_img_normalised = cv2.cvtColor(lo_filtered_img_normalised, cv2.COLOR_GRAY2BGR)
+        lp_filter_vis = cv2.cvtColor(np.uint8(lp_filter[:, :, 0] * 255), cv2.COLOR_GRAY2BGR)
+        new_img[:,:,i] = lo_filtered_img_normalised[:,:,0]
+
+        show_image(magnitude_spectrum_normalised)
+    return new_img
     
 
 def create_low_pass_filter(width, height, radius):
