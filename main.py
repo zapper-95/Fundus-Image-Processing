@@ -55,94 +55,23 @@ def main():
                 img = cv2.imread(args.path + "/" + file)
                 img = add_in_painting(img)
                 
-                eye_mask = cv2.imread("eye_mask.png", cv2.IMREAD_GRAYSCALE)
-                img = cv2.bitwise_and(img, img, mask=eye_mask)
+                # look at the brightness distribution and see if it is skewed
+                # if it is skewed, then automatically apply a gamma correction
+                # to the image
 
+                #img = remove_salt_pepper_noise(img)
+                show_image(img, "original image")
+                img = adjust_gamma(img, 1.30)
+                img = remove_salt_pepper_noise(img)
+                show_image(img, "gamma corrected image")
+
+                img = clahe(img)
+                img = remove_noise(img)
                 img = fix_perspective(img)
-                eye_mask = fix_perspective(eye_mask)
-                #dft(img)
+                #show_image(img, "final image")
 
-                plot_histogram(img)
-                #img_masked = gamma_correction(img_masked,1.4)
-
-                # apply thresholding to the image
-
-
-                #img_masked = logarithmic_transform(img_masked)
-
-                #img = remove_noise(img)
-                #img = clahe(img,2,(8,8))
-                show_image(img, "Masked Image")
-
-                # convert to ycrb colour space
-                ycrb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
-                
-                #extract the brightness channel
-                brightness_img = ycrb_img[:,:,0]
-
-                # apply thresholding to the image
-                # all values below thresh are set to 255, all values above thresh are set to 0
-
-
-                #thresh = np.percentile(brightness_img, 50)
-                thresh = 50
-                brightness_mask = cv2.threshold(brightness_img, thresh, 255, cv2.THRESH_BINARY)[1]
-                #invert mask
-                brightness_mask = cv2.bitwise_not(brightness_mask)
-
-                # the brightness mask should only be 255 if the img is not 0 and the eye mask is 255
-                brightness_mask = cv2.bitwise_and(brightness_mask, brightness_mask, mask=eye_mask)
-
-                # apply a gaussian blur to the mask
-                #brightness_mask = cv2.GaussianBlur(brightness_mask, (5, 5), 0)
-                
-                show_image(brightness_mask, "Thresholded Image")
-
-                # using the mask, apply inpainting to the original image
-                # actually, paint the image red where the mask is
-                img[brightness_mask == 255] = [0, 0, 255]
-                #img = cv2.inpaint(img, brightness_mask, 3, cv2.INPAINT_NS)
-                    
-                show_image(img, "Inpainted Image")
-                show_image(eye_mask, "Actual mask Image")
-
-                # sharpen the image
-                
-
-
-                #img_masked = equalize_histogram(img_masked)
-                #img_masked = gamma_correction(img_masked,1.7)
-
-                #img_masked = cv2.add(img, img_masked)
-
-
-
-                #img_masked = dft(img_masked, 40, 2) 
-                
-                #plot_histogram(img)
-                
-
-                #img_masked = remove_noise(img_masked)
-                #img_masked = clahe(img_masked,2,(8,8))
-                
-                #img_masked = equalize_histogram(img_masked)
-                #img_masked = exponential_transform(img_masked)
-                #img_masked = logarithmic_transform(img_masked)
-                #img_masked = gamma_correction(img_masked,0.3)
-                #plot_histogram(img)
-                
-                #img_masked = dft(img_masked)
-                # add the masked image onto the original image
-
-                #plot_histogram(img
-
-
-
-                #plot_histogram(img)
-                # if q entered, exist the program
                 if cv2.waitKey(0) & 0xFF == ord('q'):
                     break
-
                 cv2.imwrite("Results/" + file, img)
 
         
@@ -151,6 +80,30 @@ def main():
             print("Exception: ", e)
             continue
 
+def brightness_correction(img):
+    return
+
+def remove_salt_pepper_noise(img):
+    eye_mask = cv2.imread("eye_mask.png", cv2.IMREAD_GRAYSCALE)
+    img = cv2.bitwise_and(img, img, mask=eye_mask)
+
+    show_image(img, "original image")
+
+    # convert to ycrcb
+    ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+
+    #display the brightness channel
+    show_image(ycrcb_img[:,:,0], "brightness channel")
+    # for all brightness values less than 100, make a mask that includes them
+    # but also also is in the eye_mask
+    mask = cv2.inRange(ycrcb_img[:,:,0], 0, 40)
+    mask = cv2.bitwise_and(mask, eye_mask)
+    # display the mask to make sure it is correct
+    show_image(mask, "mask")
+
+    # paint anything in that mask using inpainting
+    img = cv2.inpaint(img,mask,20,cv2.INPAINT_NS)
+    return img
 
 def show_image(img, name="image"):
     cv2.imshow(name, img)
@@ -168,12 +121,25 @@ def plot_histogram(img):
 
     return
 
+
+def adjust_gamma(image, gamma=1.0):
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255
+        for i in np.arange(0, 256)]).astype("uint8")
+    # apply gamma correction using the lookup table
+    return cv2.LUT(image, table)
+
 def exponential_transform(img,c=1,alpha=0.05):
     #img = c*(((1+alpha)**img)-1)
 
     for row in range(img.shape[0]):
         for col in range(img.shape[1]):
             for channel in range(img.shape[2]):
+                # normalize the pixel value
+
+                i_input = norm
                 img[row, col,channel] = int(c * (math.pow(1 + alpha, img[row, col,channel]) - 1))
 
     return img
