@@ -63,20 +63,24 @@ def main():
             if file.endswith(".png") or file.endswith(".jpg") or file.endswith(".jpeg"):
                 img = cv2.imread(args.path + "/" + file)
                 img = add_in_painting(img)
-                show_image(img, "inpainting")
+                show_image(img, "original")
                 # look at the brightness distribution and see if it is skewed
                 # if it is skewed, then automatically apply a gamma correction
                 # to the image
 
                 #img = remove_salt_pepper_noise(img)
                 #show_image(img, "original image")
-                img = adjust_gamma(img, 1.30)
+                img = gamma_correction(img, 1/2)
+                show_image(img, "gamma corrected image")
+
                 img = remove_salt_pepper_noise(img)
-                #show_image(img, "gamma corrected image")
+                img = gamma_correction(img, 1.8)
+                show_image(img, "salt pepper corrected image")
 
                 img = clahe(img)
-                img = remove_noise(img)
-                
+                #img = remove_noise(img)
+                # sharpen
+                #img = sharpen(img)
 
                 img = fix_perspective(img)
                 show_image(img, "final image")
@@ -92,6 +96,12 @@ def main():
             continue
 
 
+def sharpen(img):
+    kernel3 = np.array([[0, -1,  0],
+                   [-1,  5, -1],
+                    [0, -1,  0]])
+    sharp_img = cv2.filter2D(src=img, ddepth=-1, kernel=kernel3)
+    return sharp_img
 
 def brightness_correction(img):
     return
@@ -109,18 +119,22 @@ def remove_salt_pepper_noise(img):
     #show_image(ycrcb_img[:,:,0], "brightness channel")
     # for all brightness values less than 100, make a mask that includes them
     # but also also is in the eye_mask
-    mask = cv2.inRange(ycrcb_img[:,:,0], 0, 25)
+    mask = cv2.inRange(ycrcb_img[:,:,0], 0, 50)
 
     
     mask = cv2.bitwise_and(mask, eye_mask)
     # display the mask to make sure it is correct
-    #show_image(mask, "mask")
+    show_image(mask, "mask")
 
-    # paint anything in that mask using inpainting
-    img = cv2.inpaint(img,mask,10,cv2.INPAINT_NS)
-    #img = inpaint.inpaint_biharmonic(img, mask, channel_axis=-1)
-    # scale the image to 0-255
-    #img = (img * 255).astype(np.uint8)
+
+                
+
+    # apply inpainting to the mask on the image
+    img = cv2.inpaint(img, mask, 10, cv2.INPAINT_NS)
+    
+    # get the average rgb value of the pixels in the mask
+    #print("average rgb value of pixels in the mask: ", np.mean(img[eye_mask > 0], axis=0))
+    #img[mask>0] = np.mean(img[eye_mask > 0], axis=0)
     return img
 
 def show_image(img, name="image"):
@@ -139,7 +153,8 @@ def plot_histogram(img):
 
     return
 
-
+# function taken from
+# https://stackoverflow.com/questions/59802257/problem-on-gamma-correction-with-opencv-python
 def adjust_gamma(image, gamma=1.0):
     # build a lookup table mapping the pixel values [0, 255] to
     # their adjusted gamma values
@@ -157,7 +172,6 @@ def exponential_transform(img,c=1,alpha=0.05):
             for channel in range(img.shape[2]):
                 # normalize the pixel value
 
-                i_input = norm
                 img[row, col,channel] = int(c * (math.pow(1 + alpha, img[row, col,channel]) - 1))
 
     return img
