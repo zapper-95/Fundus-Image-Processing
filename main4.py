@@ -1,45 +1,21 @@
-'''
-Your program must contain an argument parser in the main script that allows a directory containing images to be specified. I should be able to run your program in the following way: 
-python main.py image-processing-files/test_images/ 
-from which it will cycle through the images in the specified directory, perform all the processing and save the images without
- changing the filenames in a directory called “results”. 
- 
-The contents of this directory will also be a part of your submission.
-'''
-
 import argparse
 import os
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from skimage.restoration import inpaint
-import math
 
 
-def add_in_painting(img):
-    mask = cv2.imread("inpaint_mask.jpg", cv2.IMREAD_GRAYSCALE)
-    
-    img = img.astype(np.uint8)
-    mask = mask.astype(np.uint8)
-
-    img_result = inpaint.inpaint_biharmonic(img, mask, channel_axis=-1)
-    # scale the image to 0-255
-    img_result = (img_result * 255).astype(np.uint8)
-    # convert img_result to uint8
-
-    img = cv2.inpaint(img,mask,3,cv2.INPAINT_NS)
-
-    return img
 
 def main():
-    print("hello world")
-    # Parse arguments
+    # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("path", help="Path to the directory containing the images to be processed")
     args = parser.parse_args()
 
-    # Get list of files in the directory
+    # get list of files in the directory
     files = os.listdir(args.path)
+    
+    # remove any extra files MAC might have put in there
     if ".DS_Store" in files:
         files.remove(".DS_Store")
 
@@ -56,39 +32,29 @@ def main():
 
     # Process each image
     for file in files:
-        # Read image
         print("Processing image: ", file)
         try:
-            # if the file ends in .png, .jpg, or .jpeg, then process it
-            if file.endswith(".png") or file.endswith(".jpg") or file.endswith(".jpeg"):
-                orig_img = cv2.imread(args.path + "/" + file)
-                img = add_in_painting(orig_img)
-                cv2.imwrite("ns.png", img)
-                '''
-                img = gamma_correction(img, 0.8)
+            orig_img = cv2.imread(args.path + "/" + file)
+            #show_image(orig_img, "original image")
 
+            img = add_in_painting(orig_img)
 
-                img = remove_salt_pepper_noise(img)
-                
+            img = gamma_correction(img)
 
-                img = clahe(img, 1, (3,3))
-
-                #show_image(img , "img1")
-
-                img = remove_noise(img)
-                
-                '''
-                #img = fix_perspective(orig_img)
-                
+            # experimental method I made to try and remove dark patches of noise
+            img = dark_noise_replacement(img)
             
+            img = clahe(img)
 
+            img = median_filter(img)
+            
+            img = fix_perspective(img)
 
-                show_image(img, "final image")
-                
-                if cv2.waitKey(0) & 0xFF == ord('q'):
-                    break
-                cv2.imwrite("Results/" + file, img)
-
+            #show_image(img, "final image")     
+            #if cv2.waitKey(0) & 0xFF == ord('q'):
+                #break
+            
+            cv2.imwrite("Results/" + file, img)
         
         # print exception and continue
         except Exception as e:
@@ -96,44 +62,45 @@ def main():
             continue
 
 
-
-def brightness_correction(img):
+def show_image(img, name="image"):
+    cv2.imshow(name, img)
     return
 
-def remove_salt_pepper_noise(img):
+def add_in_painting(img):
+    # load mask of the hole to fill
+    mask = cv2.imread("inpaint_mask.jpg", cv2.IMREAD_GRAYSCALE)  
+    img = img.astype(np.uint8)
+    mask = mask.astype(np.uint8)
+
+    # paint the hole using inpainting
+    img = cv2.inpaint(img,mask,3,cv2.INPAINT_NS)
+
+    return img
+
+def dark_noise_replacement(img):
     eye_mask = cv2.imread("eye_mask.png", cv2.IMREAD_GRAYSCALE)
     img = cv2.bitwise_and(img, img, mask=eye_mask)
-
-    #show_image(img, "original image")
 
     # convert to ycrcb
     ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
 
-    #display the brightness channel
-    #show_image(ycrcb_img[:,:,0], "brightness channel")
-    # for all brightness values less than 100, make a mask that includes them
-    # but also also is in the eye_mask
+    # for all brightness values less than 25, make a mask that includes them
     mask = cv2.inRange(ycrcb_img[:,:,0], 0, 25)
-
-    
+    # now apply a mask to the image to ensure that it is only pixels on the eye
     mask = cv2.bitwise_and(mask, eye_mask)
+
     # display the mask to make sure it is correct
     #show_image(mask, "mask")
 
     # paint anything in that mask using inpainting
     img = cv2.inpaint(img,mask,10,cv2.INPAINT_NS)
-    #img = inpaint.inpaint_biharmonic(img, mask, channel_axis=-1)
-    # scale the image to 0-255
-    #img = (img * 255).astype(np.uint8)
     return img
-
-def show_image(img, name="image"):
-    cv2.imshow(name, img)
-
 
 
 def plot_histogram(img, file_name, gray_scale = False):
     #https://docs.opencv.org/3.4/d1/db7/tutorial_py_histogram_begins.html
+    # used for plotting the histogram
+
     plt.rcParams.update({'font.size': 15})
 
     if (gray_scale):
@@ -150,57 +117,43 @@ def plot_histogram(img, file_name, gray_scale = False):
     plt.ylabel("Count")
     plt.xlabel("Pixel Value")
     plt.title("Histogram of " + file_name)
-    # increase font size
     plt.show()
-
     return
 
 
-def gamma_correction(img, gamma=0.7):
+# taken from https://github.com/atapour/ip-python-opencv/blob/main/gamma_correction.py
+def gamma_correction(img, gamma=0.8):
     img = ((np.power(img/255, gamma))*255).astype('uint8')
 
     return img
 
+
+# help from https://docs.opencv.org/4.x/da/d6e/tutorial_py_geometric_transformations.html
+# and https://medium.com/analytics-vidhya/opencv-perspective-transformation-9edffefb2143
 def fix_perspective(img):
-    # ellipse = cv2.ellipse(img, (130,125), (105,145), -7, 0, 360, (255,255,255), -1)
-    #circle = cv2.circle(img, (130,125), 120, (255,255,255), -1)
-    
     rows, cols = img.shape[:2]
 
     src_points = np.float32([[25,125], [235,115], [125,9], [143,235]])
 
-    #draw the src points on the image. Make the colour green
-
+    '''
+    CODE TO DRAW THE POINTS ON THE IMAGE
     for point in src_points:
-        # get the x and y coordinates of the point
+        get the x and y coordinates of the point
         x = int(point[0])
         y = int(point[1])
-
-        #img = cv2.circle(img, (x,y), radius=3, color=(0, 255, 0), thickness=-1,)
-
-    #cv2.imshow("image", img)
-
-
-    #cv2.waitKey(0)
+        img = cv2.circle(img, (x,y), radius=3, color=(0, 255, 0), thickness=-1,)  
+    
+    
+    '''
     dst_points = np.float32([[10,125], [240,125], [130,23], [130,232]]) 
     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+
+    # return the image with the perspective transform applied
     return cv2.warpPerspective(img, projective_matrix, (cols,rows))
 
 
-def remove_noise(img):
-    sigma_r = 10
-    sigma_s = 30
-        # apply billateral filtering
-    #img = cv2.bilateralFilter(img, 9, sigma_r, sigma_s, borderType=cv2.BORDER_REPLICATE)
-
-
-    # apply non local means denoising
-    #img = cv2.fastNlMeansDenoisingColored(img,None,4,4,7,21)
-    
-    
-    #remove salt and pepper noise
+def median_filter(img):
     img = cv2.medianBlur(img,3)
-    #img  = cv2.bilateralFilter(img,9,75,75)
     return img
 
 def equalize_histogram(img):
@@ -215,14 +168,18 @@ def equalize_histogram(img):
 
     # convert back to RGB color-space from YCrCb
     img = cv2.cvtColor(ycrcb_img, cv2.COLOR_YCrCb2BGR)
-
-
     return img
 
-def clahe(img, clipLimit=1, tileGridSize=(8, 8)):
+def clahe(img, clipLimit=1, tileGridSize=(3, 3)):
+    
+    # convert from RGB color-space to YCrCb
     ycrcb_img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+
+    # apply CLAHE to the Y channel
     clahe = cv2.createCLAHE(clipLimit, tileGridSize)
     ycrcb_img[:, :, 0] = clahe.apply(ycrcb_img[:, :, 0])
+
+    # convert back to RGB color-space from YCrCb
     img = cv2.cvtColor(ycrcb_img, cv2.COLOR_YCrCb2BGR)
 
     return img
