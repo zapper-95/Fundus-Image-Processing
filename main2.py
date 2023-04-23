@@ -68,11 +68,14 @@ def main():
                 # if it is skewed, then automatically apply a gamma correction
                 # to the image
 
-                img = adjust_gamma(img, 1.30)
+                img = gamma_correction(img, 0.8)
                 img = remove_salt_pepper_noise(img)
                 
 
-                img = clahe(img)
+                img = clahe(img, 1, (3,3))
+
+                show_image(img , "img1")
+
                 img = remove_noise(img)
                 
 

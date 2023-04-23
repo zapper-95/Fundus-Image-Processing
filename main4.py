@@ -63,22 +63,24 @@ def main():
             if file.endswith(".png") or file.endswith(".jpg") or file.endswith(".jpeg"):
                 orig_img = cv2.imread(args.path + "/" + file)
                 img = add_in_painting(orig_img)
-                show_image(img, "inpainting")
-                # look at the brightness distribution and see if it is skewed
-                # if it is skewed, then automatically apply a gamma correction
-                # to the image
+                cv2.imwrite("ns.png", img)
+                '''
+                img = gamma_correction(img, 0.8)
 
-                img = adjust_gamma(img, 1.30)
+
                 img = remove_salt_pepper_noise(img)
                 
 
-                img = clahe(img)
+                img = clahe(img, 1, (3,3))
+
+                #show_image(img , "img1")
+
                 img = remove_noise(img)
                 
-
-                img = fix_perspective(img)
-
-                # add slight sharpening
+                '''
+                #img = fix_perspective(orig_img)
+                
+            
 
 
                 show_image(img, "final image")
@@ -130,39 +132,29 @@ def show_image(img, name="image"):
 
 
 
-def plot_histogram(img):
+def plot_histogram(img, file_name, gray_scale = False):
     #https://docs.opencv.org/3.4/d1/db7/tutorial_py_histogram_begins.html
-    color = ('b','g','r')
-    for i,col in enumerate(color):
-        histr = cv2.calcHist([img],[i],None,[256],[0,256])
-        plt.plot(histr,color = col)
-        plt.xlim([0,256])
+    plt.rcParams.update({'font.size': 15})
+
+    if (gray_scale):
+        cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        hist = cv2.calcHist([img],[0],None,[256],[0,256])
+        plt.plot(hist)
+    else:
+        color = ('b','g','r')
+        for i,col in enumerate(color):
+            hist = cv2.calcHist([img],[i],None,[256],[0,256])
+            plt.plot(hist,color = col)
+    
+    plt.xlim([0,256])
+    plt.ylabel("Count")
+    plt.xlabel("Pixel Value")
+    plt.title("Histogram of " + file_name)
+    # increase font size
     plt.show()
 
     return
 
-
-def adjust_gamma(image, gamma=1.0):
-    # build a lookup table mapping the pixel values [0, 255] to
-    # their adjusted gamma values
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-        for i in np.arange(0, 256)]).astype("uint8")
-    # apply gamma correction using the lookup table
-    return cv2.LUT(image, table)
-
-def exponential_transform(img,c=1,alpha=0.05):
-    #img = c*(((1+alpha)**img)-1)
-
-    for row in range(img.shape[0]):
-        for col in range(img.shape[1]):
-            for channel in range(img.shape[2]):
-                # normalize the pixel value
-
-                i_input = norm
-                img[row, col,channel] = int(c * (math.pow(1 + alpha, img[row, col,channel]) - 1))
-
-    return img
 
 def gamma_correction(img, gamma=0.7):
     img = ((np.power(img/255, gamma))*255).astype('uint8')
@@ -187,6 +179,8 @@ def fix_perspective(img):
         #img = cv2.circle(img, (x,y), radius=3, color=(0, 255, 0), thickness=-1,)
 
     #cv2.imshow("image", img)
+
+
     #cv2.waitKey(0)
     dst_points = np.float32([[10,125], [240,125], [130,23], [130,232]]) 
     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
@@ -208,15 +202,6 @@ def remove_noise(img):
     img = cv2.medianBlur(img,3)
     #img  = cv2.bilateralFilter(img,9,75,75)
     return img
-
-def logarithmic_transform(image):
-
-    image = image / 2
-    c = 255 / np.log(1 + np.max(image))
-    log_image = c * (np.log(image + 1))
-    log_image = np.array(log_image, dtype = np.uint8)
-
-    return log_image
 
 def equalize_histogram(img):
     # credit to https://www.etutorialspoint.com/index.php/311-python-opencv-histogram-equalization
@@ -242,123 +227,6 @@ def clahe(img, clipLimit=1, tileGridSize=(8, 8)):
 
     return img
 
-
-def dft(img, radius=40, order=1):
-    new_img = img.copy()
-    # iterate through each colour channel
-    for i in range(0, 3):
-        channel = img[:,:,i]
-
-        #gray_frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        width = int(channel.shape[1])
-        height = int(channel.shape[0])
-        dim = (width, height)
-
-        # set up optimized DFT settings
-
-        nheight = cv2.getOptimalDFTSize(height)
-        nwidth = cv2.getOptimalDFTSize(width)
-
-        # Performance of DFT calculation, via the FFT, is better for array
-        # sizes of power of two. Arrays whose size is a product of
-        # 2's, 3's, and 5's are also processed quite efficiently.
-        # Hence we modify the size of the array to the optimal size (by padding
-        # zeros) before finding DFT.
-
-        pad_right = nwidth - width
-        pad_bottom = nheight - height
-        nframe = cv2.copyMakeBorder(
-            channel,
-            0,
-            pad_bottom,
-            0,
-            pad_right,
-            cv2.BORDER_CONSTANT,
-            value=0)
-
-            # perform the DFT and get complex output
-
-        dft = cv2.dft(np.float32(nframe), flags=cv2.DFT_COMPLEX_OUTPUT)
-
-        # shift it so that we the zero-frequency, F(0,0), DC component to the
-        # center of the spectrum.
-
-        dft_shifted = np.fft.fftshift(dft)
-
-
-
-        lp_filter = create_butterworth_low_pass_filter(nwidth, nheight, radius, order)
-        lo_dft_filtered = cv2.mulSpectrums(dft_shifted, lp_filter, flags=0)
-
-        # shift back to original quaderant ordering
-
-        lo_dft = np.fft.fftshift(lo_dft_filtered)
-
-        # recover the original image via the inverse DFT
-
-        lo_filtered_img = cv2.dft(lo_dft, flags=cv2.DFT_INVERSE)
-
-        # normalized the filtered image into 0 -> 255 (8-bit grayscale) 
-        # so we can see the output
-
-        # low pass filter output
-
-        lo_min_val, lo_max_val, lo_min_loc, lo_max_loc = \
-            cv2.minMaxLoc(lo_filtered_img[:, :, 0])
-        lo_filtered_img_normalised = lo_filtered_img[:, :, 0] * (
-            1.0 / (lo_max_val - lo_min_val)) + ((-lo_min_val) / (lo_max_val - lo_min_val))
-        lo_filtered_img_normalised = np.uint8(lo_filtered_img_normalised * 255)
-
-        # calculate the magnitude spectrum and log transform + scale for visualization
-
-
-        lo_magnitude_spectrum = np.log(cv2.magnitude(
-            lo_dft_filtered[:, :, 0], lo_dft_filtered[:, :, 1]))
-
-        magnitude_spectrum = np.log(cv2.magnitude(
-            dft_shifted[:, :, 0], dft_shifted[:, :, 1]))
-
-        # create 8-bit images to put the magnitude spectrum into
-
-        magnitude_spectrum_normalised = np.zeros((nheight, nwidth, 1), np.uint8)
-
-        # normalized the magnitude spectrum into 0 -> 255 (8-bit grayscale) so
-        # we can see the output
-
-        cv2.normalize(
-            np.uint8(magnitude_spectrum),
-            magnitude_spectrum_normalised,
-            alpha=0,
-            beta=255,
-            norm_type=cv2.NORM_MINMAX)
-
-        # convert back to colour for visualisation
-
-        #channel = cv2.cvtColor(channel, cv2.COLOR_GRAY2BGR)
-        magnitude_spectrum_normalised = cv2.cvtColor(magnitude_spectrum_normalised, cv2.COLOR_GRAY2BGR)
-        lo_filtered_img_normalised = cv2.cvtColor(lo_filtered_img_normalised, cv2.COLOR_GRAY2BGR)
-        lp_filter_vis = cv2.cvtColor(np.uint8(lp_filter[:, :, 0] * 255), cv2.COLOR_GRAY2BGR)
-        new_img[:,:,i] = lo_filtered_img_normalised[:,:,0]
-
-        show_image(magnitude_spectrum_normalised)
-    return new_img
-    
-
-def create_low_pass_filter(width, height, radius):
-    lp_filter = np.zeros((height, width, 2), np.float32)
-    cv2.circle(lp_filter, (int(width / 2), int(height / 2)),
-               radius, (1, 1, 1), thickness=-1)
-    return lp_filter
-
-def create_butterworth_low_pass_filter(width, height, d, n):
-    lp_filter = np.zeros((height, width, 2), np.float32)
-    centre = (width / 2, height / 2)
-
-    for i in range(0, lp_filter.shape[1]):  # image width
-        for j in range(0, lp_filter.shape[0]):  # image height
-            radius = max(1, math.sqrt(math.pow((i - centre[0]), 2.0) + math.pow((j - centre[1]), 2.0)))
-            lp_filter[j, i] = 1 / (1 + math.pow((radius / d), (2 * n)))
-    return lp_filter
 
 if __name__ == "__main__":
     main()

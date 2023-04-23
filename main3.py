@@ -62,21 +62,26 @@ def main():
             # if the file ends in .png, .jpg, or .jpeg, then process it
             if file.endswith(".png") or file.endswith(".jpg") or file.endswith(".jpeg"):
                 orig_img = cv2.imread(args.path + "/" + file)
+                ycrcb_img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2YCrCb)
+                plot_histogram(ycrcb_img)
                 img = add_in_painting(orig_img)
                 show_image(img, "inpainting")
                 # look at the brightness distribution and see if it is skewed
                 # if it is skewed, then automatically apply a gamma correction
                 # to the image
 
-                img = adjust_gamma(img, 1.30)
+                #img = gamma_correction(img, 0.8)
                 img = remove_salt_pepper_noise(img)
+                show_image(img, "salt and pepper")
+
+                img = clahe(img, 1, (3,3))
+
+                show_image(img , "img1")
+
+                #img = remove_noise(img)
                 
 
-                img = clahe(img)
-                img = remove_noise(img)
-                
-
-                img = fix_perspective(img)
+                #img = fix_perspective(img)
 
                 # add slight sharpening
 
@@ -126,18 +131,26 @@ def remove_salt_pepper_noise(img):
     return img
 
 def show_image(img, name="image"):
-    cv2.imshow(name, img)
+    #cv2.imshow(name, img)
+    return
 
 
 
 def plot_histogram(img):
-    #https://docs.opencv.org/3.4/d1/db7/tutorial_py_histogram_begins.html
+    histr = cv2.calcHist([img],[0],None,[256],[0,256])
+    plt.plot(histr)
+    plt.show()
+    '''
+        #https://docs.opencv.org/3.4/d1/db7/tutorial_py_histogram_begins.html
     color = ('b','g','r')
     for i,col in enumerate(color):
         histr = cv2.calcHist([img],[i],None,[256],[0,256])
         plt.plot(histr,color = col)
         plt.xlim([0,256])
-    plt.show()
+    plt.show()       
+        
+        '''
+
 
     return
 
