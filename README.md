@@ -31,15 +31,7 @@ The image processing pipeline consists of the following:
 
 To find a more detailed description of the experimentation conducted and design choices, please read `report/Image Processing Report.pdf`.
 
-## Running the Code
-To produce the processed images, run `python main.py`.
-* To specify the path, add the path argument i.e `python main.py --path=PATH`
-* To show each unprocessed image and its processed version, add the show argument `python main.py --show=y`
-    * When viewing these images press the q key or exit button to move to the next one
 
-To run the classifier on the images, run `python classify.py`
-*   To specify the image directory, add the data argument i.e `python main.py --data=results`
-* The default directory used is the unprocessed images in `test_images` 
 
 
 
@@ -60,3 +52,14 @@ Here are eight cherry picked unprocessed and processed images:
 | ![Original Image 6](./test_images/im33-RET072OD.jpg) | ![Enhanced Image 6](./results/im33-RET072OD.jpg) |
 | ![Original Image 7](./test_images/im36-RET104OS.jpg) | ![Enhanced Image 7](./results/im36-RET104OS.jpg) |
 | ![Original Image 8](./test_images/im40-RET264OD.jpg) | ![Enhanced Image 8](./results/im40-RET264OD.jpg) |
+
+
+## Running the Code
+To produce the processed images, run `python main.py`.
+* To specify the path, add the path argument i.e `python main.py --path=PATH`
+* To show each unprocessed image and its processed version, add the show argument `python main.py --show=y`
+    * When viewing these images press the q key or exit button to move to the next one
+
+To run the classifier on the images, run `python classify.py`
+*   To specify the image directory, add the data argument i.e `python main.py --data=results`
+* The default directory used is the unprocessed images in `test_images` 
