@@ -8,25 +8,29 @@ This classifier was trained on non-defected images and used to detect the presen
 
 
 ## Method
-The image processing pipeline consits of the following:
+The image processing pipeline consists of the following:
 
-1. Inpainting holes
+1. Inpainting Holes
     * Inpainting applied to the hole in the bottom right 
+
 2. Gamma Correction
     * Images were underexposed, so applied 0.8 gamma
 3. Pepper Noise Replacement
     * Custom method to remove pepper noise
     * Converts to Y_Cr_Cb colour space
     * Inpaints pixels with less than 25 Cb that lie within the eye  
-4. CLAHE - Contrast Limited Adaptive Histogram Equalisation
-    * 
+4. CLAHE - Contrast-Limited Adaptive Histogram Equalisation
+    * Adaptive Histogram Equalisation (AHE) applies histogram equalisation to pixels within a neighbourhood
+    * If there are many similar pixels in a neighbourhood, the contrast is overamplified
+    * Contrast-Limited AHE prevents overamplification, reducing additional noise
 5. Median Filter
-    * 
+    * The Median filter removes salt and pepper noise whilst only minimally removing edges
 6. Perspective Fixing
-    * Unprocessed images are warped, and rotated
-    * Appplied a perspective transform to 
+    * Unprocessed images are warped and rotated
+    * Due to the elliptical shape, the image is warped using points on its major and minor axis
 
 To find a more detailed description of the experimentation conducted and design choices, please read `report/Image Processing Report.pdf`.
+
 ## Running the Code
 To produce the processed images, run `python main.py`.
 * To specify the path, add the path argument i.e `python main.py --path=PATH`
@@ -40,9 +44,9 @@ To run the classifier on the images, run `python classify.py`
 
 
 ## Results
-* The classifier performs with accuracy of 57.5% on unprocessed images
-* After applying the proposed image processing pipeline, accuracy is increased to 80%
-* Visual quality is improved, as show in the table below
+* The classifier performs with accuracy of 57.5% on the unprocessed images
+* After applying the proposed image processing pipeline, accuracy increased to 80.0%
+* Visual quality and detail is significantly improved
 
 Here are eight cherry picked unprocessed and processed images:
 
