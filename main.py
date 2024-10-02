@@ -67,7 +67,7 @@ def show_image(img, name="image"):
 
 def add_in_painting(img):
     # load mask of the hole to fill
-    mask = cv2.imread("inpaint_mask.jpg", cv2.IMREAD_GRAYSCALE)  
+    mask = cv2.imread("masks/inpaint_mask.jpg", cv2.IMREAD_GRAYSCALE)  
     img = img.astype(np.uint8)
     mask = mask.astype(np.uint8)
 
@@ -77,7 +77,7 @@ def add_in_painting(img):
     return img
 
 def dark_noise_replacement(img):
-    eye_mask = cv2.imread("eye_mask.png", cv2.IMREAD_GRAYSCALE)
+    eye_mask = cv2.imread("masks/eye_mask.png", cv2.IMREAD_GRAYSCALE)
     img = cv2.bitwise_and(img, img, mask=eye_mask)
 
     # convert to ycrcb
