@@ -8,7 +8,20 @@ from matplotlib import pyplot as plt
 def main():
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("path", help="Path to the directory containing the images to be processed")
+
+    parser.add_argument(
+    "--path",
+    type=str,
+    help="Specify path to the directory containing the images to be processed",
+    default="test_images")
+
+    parser.add_argument(
+    "--show",
+    type=str,
+    help="Show each processed image",
+    default="N")
+
+
     args = parser.parse_args()
 
     # get list of files in the directory
@@ -49,11 +62,13 @@ def main():
             
             img = fix_perspective(img)
 
-            #show_image(img, "final image")     
-            #if cv2.waitKey(0) & 0xFF == ord('q'):
-                #break
+
+            if args.show == "y":
+                show_image(img, "processed image")     
+                if cv2.waitKey(0) & 0xFF == ord('q'):
+                    cv2.destroyAllWindows()
             
-            cv2.imwrite("Results/" + file, img)
+            cv2.imwrite("results/" + file, img)
         
         # print exception and continue
         except Exception as e:
