@@ -19,7 +19,7 @@ def main():
     "--show",
     type=str,
     help="Show each processed image",
-    default="N")
+    default="n")
 
 
     args = parser.parse_args()
@@ -64,6 +64,7 @@ def main():
 
 
             if args.show == "y":
+                show_image(orig_img, "unprocessed image")  
                 show_image(img, "processed image")     
                 if cv2.waitKey(0) & 0xFF == ord('q'):
                     cv2.destroyAllWindows()
