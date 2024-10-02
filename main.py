@@ -21,13 +21,13 @@ def main():
 
     # Create a directory to store the results
     # if it exists, overwrite it
-    if os.path.exists("Results"):
+    if os.path.exists("results"):
         # recursively remove the directory called results
-        for file in os.listdir("Results"):
-            os.remove("Results/" + file)
-        os.rmdir("Results")
+        for file in os.listdir("results"):
+            os.remove("results/" + file)
+        os.rmdir("results")
 
-    os.makedirs("Results")
+    os.makedirs("results")
 
     # Process each image
     for file in files:
